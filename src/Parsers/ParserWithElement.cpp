@@ -62,15 +62,6 @@ bool ParserWithElement::parseImpl(Pos & pos, ASTPtr & node, Expected & expected)
         ParserExpressionWithOptionalAlias s_expr(false);
         if (!s_expr.parse(pos, node, expected))
             return false;
-
-        auto * with_element_alias = dynamic_cast<ASTWithAlias *>(node.get());
-        // Require aliases for non-identifier expressions in the WITH clause.
-        // Bare identifiers (e.g. `p05`) are allowed for backward compatibility with
-        // older ClickHouse versions that produce identifier-only WITH elements when
-        // rewriting queries in mixed-version clusters.
-        String identifier_name;
-        if (!with_element_alias || (with_element_alias->alias.empty() && !tryGetIdentifierNameInto(node, identifier_name)))
-            return false;
     }
     return true;
 }
