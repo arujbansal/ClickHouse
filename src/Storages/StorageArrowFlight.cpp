@@ -197,10 +197,13 @@ Pipe StorageArrowFlight::read(
     Block sample_block = storage_snapshot->getSampleBlockForColumns(physical_columns);
     Block virtual_header = storage_snapshot->getSampleBlockForColumns(virtual_columns);
 
-    auto flight_endpoints = ArrowFlightSource::findEndpoints(connection, dataset_name, context_);
+    auto flight_info = ArrowFlightSource::getFlightInfo(connection, dataset_name, context_);
+    auto flight_endpoints = flight_info->endpoints();
 
     const size_t num_endpoints = flight_endpoints.size();
-    const size_t streams = std::min(std::max<size_t>(num_streams, 1), num_endpoints);
+    const size_t streams = flight_info->ordered()
+        ? 1
+        : std::min(std::max<size_t>(num_streams, 1), num_endpoints);
 
     std::vector<std::vector<arrow::flight::FlightEndpoint>> buckets(streams);
     for (size_t i = 0; i < num_endpoints; ++i)

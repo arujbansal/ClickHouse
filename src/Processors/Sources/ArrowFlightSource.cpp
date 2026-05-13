@@ -94,7 +94,7 @@ ArrowFlightSource::ArrowFlightSource(
     initializeSchema();
 }
 
-std::vector<arrow::flight::FlightEndpoint> ArrowFlightSource::findEndpoints(
+std::unique_ptr<arrow::flight::FlightInfo> ArrowFlightSource::getFlightInfo(
     std::shared_ptr<ArrowFlightConnection> connection_,
     const String & dataset_name_,
     ContextPtr context_)
@@ -127,12 +127,12 @@ std::vector<arrow::flight::FlightEndpoint> ArrowFlightSource::findEndpoints(
     if (flight_info->endpoints().empty())
         throw Exception(ErrorCodes::ARROWFLIGHT_FETCH_SCHEMA_ERROR, "FlightInfo returned with no endpoints");
 
-    return flight_info->endpoints();
+    return flight_info;
 }
 
 void ArrowFlightSource::initializeEndpoints(const String & dataset_name_)
 {
-    endpoints = findEndpoints(connection, dataset_name_, context);
+    endpoints = getFlightInfo(connection, dataset_name_, context)->endpoints();
 }
 
 
