@@ -71,10 +71,12 @@ ArrowFlightSource::ArrowFlightSource(
     std::shared_ptr<ArrowFlightConnection> connection_,
     std::vector<arrow::flight::FlightEndpoint> endpoints_,
     const Block & sample_block_,
+    const Block & virtual_header_,
     ContextPtr context_)
-    : ISource(std::make_shared<const Block>(sample_block_.cloneEmpty()))
+    : ISource(std::make_shared<const Block>(buildOutputHeader(sample_block_, virtual_header_)))
     , connection(connection_)
     , sample_block(sample_block_)
+    , virtual_header(virtual_header_)
     , context(context_)
     , endpoints(std::move(endpoints_))
 {
@@ -92,13 +94,16 @@ ArrowFlightSource::ArrowFlightSource(
     initializeSchema();
 }
 
-void ArrowFlightSource::initializeEndpoints(const String & dataset_name_)
+std::vector<arrow::flight::FlightEndpoint> ArrowFlightSource::findEndpoints(
+    std::shared_ptr<ArrowFlightConnection> connection_,
+    const String & dataset_name_,
+    ContextPtr context_)
 {
-    auto client = connection->getClient();
-    auto options = connection->getOptions();
+    auto client = connection_->getClient();
+    auto options = connection_->getOptions();
 
     arrow::flight::FlightDescriptor descriptor;
-    if (context && context->getSettingsRef()[Setting::arrow_flight_request_descriptor_type] == ArrowFlightDescriptorType::Command)
+    if (context_ && context_->getSettingsRef()[Setting::arrow_flight_request_descriptor_type] == ArrowFlightDescriptorType::Command)
     {
         String query = "SELECT * FROM " + dataset_name_;
         descriptor = arrow::flight::FlightDescriptor::Command(query);
@@ -122,7 +127,12 @@ void ArrowFlightSource::initializeEndpoints(const String & dataset_name_)
     if (flight_info->endpoints().empty())
         throw Exception(ErrorCodes::ARROWFLIGHT_FETCH_SCHEMA_ERROR, "FlightInfo returned with no endpoints");
 
-    endpoints = flight_info->endpoints();
+    return flight_info->endpoints();
+}
+
+void ArrowFlightSource::initializeEndpoints(const String & dataset_name_)
+{
+    endpoints = findEndpoints(connection, dataset_name_, context);
 }
 
 

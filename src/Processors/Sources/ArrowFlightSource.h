@@ -22,8 +22,9 @@ class ArrowFlightSource : public ISource
 
 public:
     ArrowFlightSource(std::shared_ptr<ArrowFlightConnection> connection_, const String & dataset_name_, const Block & sample_block_, const Block & virtual_header_, ContextPtr context_);
-    ArrowFlightSource(std::shared_ptr<ArrowFlightConnection> connection_, std::vector<arrow::flight::FlightEndpoint> endpoints_, const Block & sample_block_, ContextPtr context_);
+    ArrowFlightSource(std::shared_ptr<ArrowFlightConnection> connection_, std::vector<arrow::flight::FlightEndpoint> endpoints_, const Block & sample_block_, const Block & virtual_header_, ContextPtr context_);
     ArrowFlightSource(std::unique_ptr<arrow::flight::MetadataRecordBatchReader> stream_reader_, const Block & sample_block_, ContextPtr context_);
+    static std::vector<arrow::flight::FlightEndpoint> findEndpoints(std::shared_ptr<ArrowFlightConnection> connection_, const String & dataset_name_, ContextPtr context_);
 
 protected:
     String getName() const override { return "ArrowFlightSource"; }

@@ -189,7 +189,7 @@ Pipe StorageArrowFlight::read(
     ContextPtr context_,
     QueryProcessingStage::Enum,
     size_t /*max_block_size*/,
-    size_t /*num_streams*/)
+    size_t num_streams)
 {
     storage_snapshot->check(column_names);
 
@@ -197,12 +197,21 @@ Pipe StorageArrowFlight::read(
     Block sample_block = storage_snapshot->getSampleBlockForColumns(physical_columns);
     Block virtual_header = storage_snapshot->getSampleBlockForColumns(virtual_columns);
 
-    return Pipe(std::make_shared<ArrowFlightSource>(
-        connection,
-        dataset_name,
-        sample_block,
-        virtual_header,
-        context_));
+    auto flight_endpoints = ArrowFlightSource::findEndpoints(connection, dataset_name, context_);
+
+    const size_t num_endpoints = flight_endpoints.size();
+    const size_t streams = std::min(std::max<size_t>(num_streams, 1), num_endpoints);
+
+    std::vector<std::vector<arrow::flight::FlightEndpoint>> buckets(streams);
+    for (size_t i = 0; i < num_endpoints; ++i)
+        buckets[i % streams].push_back(std::move(flight_endpoints[i]));
+
+    Pipes pipes;
+    pipes.reserve(streams);
+    for (auto & bucket : buckets)
+        pipes.push_back(Pipe(std::make_shared<ArrowFlightSource>(connection, std::move(bucket), sample_block, virtual_header, context_)));
+
+    return Pipe::unitePipes(std::move(pipes));
 }
 
 class ArrowFlightSink : public SinkToStorage
